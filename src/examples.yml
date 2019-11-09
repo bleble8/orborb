@@ -1,0 +1,58 @@
+examples:
+  Open Source Example using bors.tech:
+    description: |
+      Workflow that assumes use of bors.tech and PR driven workflow. 
+      This will ignore master branch for all workflows, publish on staging and test on trying.
+    usage:
+      version: 2.1
+
+      parameters:
+        orbnamespace: 
+          type: string
+          default: eddiewebb
+        orbname: 
+          type: string
+          default: orborb
+
+      orbs:
+        orborb: eddiewebb/orborb@X.Y.Z
+
+      workflows:
+        build-deploy:
+          jobs:
+            # validate every push/commit
+            - orborb/validate:
+                name: validate
+                filters:
+                  branches:
+                    ignore: 
+                      - master
+            # test will only run on our bors branches since it needs an API token to publish dev versiuon.
+            # PR maintainers will need to `bors try` or `bors merge`
+            - orborb/test:
+                name: Unit Tests
+                orbnamespace: <<pipeline.parameters.orbnamespace>>
+                orbname: <<pipeline.parameters.orbname>>
+                ghi_name: eddiewebb #optional fiueld to publish version on PRs
+                requires: 
+                  - validate
+                filters:
+                  branches:
+                    only: 
+                      - staging
+                      - trying
+            # publish will only run on our staging branchg (bors treats staging as prod stream)
+            # PR maintainers will need to `bors merge`
+            - orborb/publish:
+                orbname: <<pipeline.parameters.orbname>>
+                orbnamespace: <<pipeline.parameters.orbnamespace>>
+                ghi_name: eddiewebb #optional fiueld to publish version on PRs
+                requires:
+                  - Unit Tests
+                filters:
+                  branches:
+                    only: staging
+
+
+
+
