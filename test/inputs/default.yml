@@ -1,0 +1,39 @@
+parameters:
+  orbnamespace: 
+    type: string
+    default: eddiewebb
+  orbname: 
+    type: string
+    default: orborb
+
+workflows:
+  build-deploy:
+    jobs:
+      - orborb/validate:
+          name: validate
+          filters:
+            branches:
+              ignore: 
+                - master
+      - orborb/test:
+          orbnamespace: <<pipeline.parameters.orbnamespace>>
+          orbname: <<pipeline.parameters.orbname>>
+          name: Unit Tests
+          requires: 
+            - validate
+          filters:
+            branches:
+              only: 
+                - staging
+                - trying
+      - orborb/publish:
+          orbname: <<pipeline.parameters.orbname>>
+          requires:
+            - Unit Tests
+          filters:
+            branches:
+              only: staging
+
+
+
+
