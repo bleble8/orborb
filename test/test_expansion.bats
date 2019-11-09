@@ -12,298 +12,37 @@ function setup {
 	echo "#using temp file ${BATS_TMPDIR}/"
 
   # the name used in example config files.
-  INLINE_ORB_NAME="queue"
+  INLINE_ORB_NAME="orborb"
 }
 
 
-@test "Job: full job expands properly" {
+
+@test "Command: Test command is correct for inline" {
   # given
-  process_config_with test/inputs/fulljob.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/onepreviousjob-differentname.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
+  process_config_with test/inputs/default.yml
 
   # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["Single File"].steps | length' 1 #only 1 steps
+  assert_jq_match '.jobs | length' 3
+  assert_jq_match '.jobs["Unit Tests"].steps[-1].run.name' "Run Tests using BATS"
+  run jq -r '.jobs["Unit Tests"].steps[-1].run.command' $JSON_PROJECT_CONFIG
+
+  assert_contains_text "bats test"
+
+  assert_text_not_found "BATS_IMPORT_DEV_ORB"
 
 }
 
 
-@test "Command: Input parameters are respected by command" {
+@test "Command: Test command is correct for import" {
   # given
-  process_config_with test/inputs/command-non-default.yml
+  process_config_with test/inputs/import-test.yml
 
   # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
+  assert_jq_match '.jobs | length' 3
+  assert_jq_match '.jobs["Unit Tests"].steps[-1].run.name' 'Run Tests using BATS using eddiewebb/orborb@dev:${PR_NUMBER}'
 
-  run jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG
-
-  assert_contains_text "max_time=1"
-
-}
-
-
-@test "Command: script will proceed with no previous jobs" {
-  # given
-  process_config_with test/inputs/command-defaults.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/nopreviousjobs.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Front of the line, WooHoo!, Build continuing"
-  [[ "$status" == "0" ]]
+  run jq -r '.jobs["Unit Tests"].steps[-1].run.command' $JSON_PROJECT_CONFIG
+  assert_contains_text "BATS_IMPORT_DEV_ORB"
+  assert_contains_text "bats test"
 
 }
-
-@test "Command: script will proceed with previous job of different name" {
-  # given
-  process_config_with test/inputs/command-defaults.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/onepreviousjob-differentname.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Front of the line, WooHoo!, Build continuing"
-  [[ "$status" == "0" ]]
-}
-
-@test "Command: script will WAIT with previous job of same name" {
-  # given
-  process_config_with test/inputs/command-defaults.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/onepreviousjobsamename.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Max wait time exceeded"
-  assert_contains_text "Cancelleing build 2"
-  [[ "$status" == "1" ]]
-}
-
-@test "Command: script with dont-quit will not fail current job" {
-  # given
-  process_config_with test/inputs/command-non-default.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/onepreviousjobsamename.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Max wait time exceeded"
-  assert_contains_text "Orb parameter dont-quit is set to true, letting this job proceed!"
-  [[ "$status" == "0" ]]
-}
-
-
-
-@test "Command: script will consider branch" {
-  # given
-  process_config_with test/inputs/command-non-default.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/nopreviousjobs.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_BRANCH="somespecialbranch"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Orb parameter 'consider-branch' is false, will block previous builds on any branch"
-  assert_contains_text "Front of the line, WooHoo!, Build continuing"
-  [[ "$status" == "0" ]]
-
-}
-
-
-@test "Command: script will skip queueing on branches that don't match filter" {
-  # given
-  process_config_with test/inputs/command-filter-branch.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/nopreviousjobs.json #Response shouldn't matter as we're ending early
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_BRANCH="dev"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Queueing only happens on master branch, skipping queue"
-  assert_text_not_found "Max Queue Time: 1 minutes"
-  [[ "$status" == "0" ]]
-
-}
-
-@test "Command: script will consider branch default" {
-  # given
-  process_config_with test/inputs/command-defaults.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/nopreviousjobs.json #branch filtereing handles by API, so return no matching builds
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_BRANCH="somespecialbranch"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "${CIRCLE_BRANCH} queueable"
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Only blocking execution if running previous jobs on branch: ${CIRCLE_BRANCH}"
-  assert_contains_text "Front of the line, WooHoo!, Build continuing"
-  [[ "$status" == "0" ]]
-
-}
-
-
-
-@test "Command: script will queue on different job when consider-job is false" {
-  # given
-  process_config_with test/inputs/command-non-default.yml
-  export TESTING_MOCK_RESPONSE=test/api/jobs/onepreviousjob-differentname.json
-  export TESTING_MOCK_WORKFLOW_RESPONSES=test/api/workflows
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME=""
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-
-  assert_contains_text "Max Queue Time: 1 minutes"
-  assert_contains_text "Max wait time exceeded"
-
-}
-
-
-@test "Command: script will skip queueing on forks" {
-  # given
-  process_config_with test/inputs/command-defaults.yml
-
-  # when
-  assert_jq_match '.jobs | length' 1 #only 1 job
-  assert_jq_match '.jobs["build"].steps | length' 1 #only 1 steps
-
-  jq -r '.jobs["build"].steps[0].run.command' $JSON_PROJECT_CONFIG > ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-
-  export CIRCLECI_API_KEY="madethisup"
-  export CIRCLE_BUILD_NUM="2"
-  export CIRCLE_JOB="singlejob"
-  export CIRCLE_PROJECT_USERNAME="madethisup"
-  export CIRCLE_PROJECT_REPONAME="madethisup"
-  export CIRCLE_REPOSITORY_URL="madethisup"
-  export CIRCLE_BRANCH="madethisup"
-  export CIRCLE_PR_REPONAME="fork"
-
-  run bash ${BATS_TMPDIR}/script-${BATS_TEST_NUMBER}.bash
-  assert_contains_text "Queueing on forks is not supported. Skipping queue..."
-
-}
-

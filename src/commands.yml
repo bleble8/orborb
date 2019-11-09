@@ -25,9 +25,9 @@ commands:
             chmod a+x yq
             mv yq /usr/local/bin/   
       - run:
-          name: Run Tests using BATS <<# parameters.import >> using <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} <</ parameters.import >>
+          name: Run Tests using BATS<<# parameters.import >> using <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}<</ parameters.import >>
           command: |
-            <<# parameters.import >> export BATS_IMPORT_DEV_ORB="<<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}" <</ parameters.import >> #EOL comment
+            <<# parameters.import >>export BATS_IMPORT_DEV_ORB="<<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}"<</ parameters.import >>
             bats test 
 
 
