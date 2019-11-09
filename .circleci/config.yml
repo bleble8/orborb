@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  orb-orb: eddiewebb/orborb@dev:test
+  orborb: eddiewebb/orborb@dev:test
 
 workflows:
   build-deploy:
