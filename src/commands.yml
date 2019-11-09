@@ -1,0 +1,125 @@
+commands:
+  run-tests-bats:
+    description: run BATS bash testing tool for expansion and unit tests.
+    parameters:
+      orbname:
+        type: string
+        description: Change this to whatever name is correct for your orb.
+      orbnamespace:
+        type: string
+        description: Change this to whatever namespace is correct for your orb.
+      import:
+        type: boolean
+        description: should the tests against a published dev version ? (default is inline testing)
+
+    steps:
+      - run:      
+          name: Install BATS (bash testing)
+          command: |
+            cd /tmp && git clone https://github.com/bats-core/bats-core.git && cd bats-core
+            ./install.sh /usr/local
+      - run:
+          name: Install YQ
+          command: |
+            curl -L https://github.com/mikefarah/yq/releases/download/2.1.1/yq_linux_amd64 -o yq
+            chmod a+x yq
+            mv yq /usr/local/bin/   
+      - run:
+          name: Run Tests using BATS <<# parameters.import >> using <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} <</ parameters.import >>
+          command: |
+            <<# parameters.import >> export BATS_IMPORT_DEV_ORB="<<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}" <</ parameters.import >> #EOL comment
+            bats test 
+
+
+  install-circleci:
+    description: installs the new CIrcleCI CLI with orb support
+    steps:
+      - run: 
+          name: Install CircleCI CLI (the new one)
+          command: |
+            curl https://raw.githubusercontent.com/CircleCI-Public/circleci-cli/master/install.sh --fail --show-error | bash
+            circleci version
+            echo "Run circleci help"              
+            circleci help
+            echo -e "token: ${CIRCLECI_API_KEY}\nverbose: false" > ~/.circleci/cli.yml
+
+  pack-and-validate:
+    description: pack directory to single file and validate
+    steps:
+      - run:
+          name: Pack and Validate
+          command: |
+            circleci config pack src/ > packed.yml
+            circleci orb validate packed.yml
+
+  publish-dev:
+    parameters:
+      orbname:
+        type: string
+        description: Change this to whatever name is correct for your orb.
+      orbnamespace:
+        type: string
+        description: Change this to whatever namespace is correct for your orb.
+    steps:
+      - run:
+          name: Publish Dev
+          command: |
+            PUBLISH_MESSAGE=`circleci orb publish packed.yml <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} --token ${CIRCLECI_API_KEY}`
+            ORB_VERSION=$(echo $PUBLISH_MESSAGE | sed -n 's/Orb `\(.*\)` was published.*/\1/p')
+            echo "export ORB_VERSION=\"${ORB_VERSION}\"" >> $BASH_ENV
+            echo $ORB_VERSION
+            echo "export PR_MESSAGE=\"BotComment: *Development* version of orb available for manual validation - \\\`${ORB_VERSION}\\\`\"" >> $BASH_ENV
+  
+  promote-to-prod-semver:
+    description: Promote this commit's dev version to Product using the semver provided in commit subject
+    parameters:
+      orbname:
+        type: string
+        description: Change this to whatever name is correct for your orb.
+      orbnamespace:
+        type: string
+        description: Change this to whatever namespace is correct for your orb.
+    steps:    
+      - run:
+          name: Promote to prod
+          command: |
+            SEMVER_INCREMENT=`git log -1 --pretty=%B | sed -En 's/.*\[semver:(major|minor|patch|skip)\].*/\1/p'`
+            if [ -z ${SEMVER_INCREMENT} ];then
+              echo "Merge commit did not indicate which SemVer increment to make. Please ammend commit with [semver:FOO] where FOO is major, minor, or patch"
+              exit 1
+            elif [ "$SEMVER_INCREMENT" == "skip" ];then
+              echo "SEMVER in commit indicated to skip orb release"
+              echo "export PR_MESSAGE=\"BotComment: Orb publish was skipped due to [semver:skip] in commit message.\""  >> $BASH_ENV
+              exit 0
+            else
+              PUBLISH_MESSAGE=`circleci orb publish promote <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} ${SEMVER_INCREMENT} --token ${CIRCLECI_API_KEY}`            
+              echo $PUBLISH_MESSAGE
+              ORB_VERSION=$(echo $PUBLISH_MESSAGE | sed -n 's/Orb .* was promoted to `\(.*\)`.*/\1/p')
+              echo "export PR_MESSAGE=\"BotComment: *Production* version of orb available for use - \\\`${ORB_VERSION}\\\`\"" >> $BASH_ENV
+            fi    
+
+  add-pr-comment:
+    parameters:
+      ghi_name:
+        type: string
+        description: user to authenticate with github
+    description: add message to pr which this build originated from. 
+    steps:
+      - run:
+          name: Publish Version to PR
+          command: |
+            if [ "$PR_NUMBER" == "" ];then
+              echo "No pr found, do nothing"
+              exit 0
+            fi
+            curl -X POST -u << parameters.ghi_name >>:${GHI_TOKEN} "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/issues/${PR_NUMBER}/comments" -d "{\"body\":\"${PR_MESSAGE}\"}"
+
+  get-pr-info:
+    description: get PR number this change originated from
+    steps:
+      - run:
+          name: Get PR Info
+          command: |
+            PR_NUMBER=`git log -1 --pretty=%s  | sed -En 's/(Try|Merge) #([0-9]*).*/\2/p'`
+            echo "PR_NUMBER is ${PR_NUMBER}"
+            echo "export PR_NUMBER=${PR_NUMBER}" >> $BASH_ENV
