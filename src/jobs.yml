@@ -16,11 +16,9 @@ jobs:
         description: GitHub username for bot adding comments
       orbname:
         type: string
-        default: "myfirstorb"
         description: Change this to whatever name is correct for your orb.
       orbnamespace:
         type: string
-        default: "eddiewebb"
         description: Change this to whatever name is correct for your orb.
     docker:
       - image: cimg/base:2019.08
