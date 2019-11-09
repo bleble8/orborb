@@ -28,6 +28,7 @@ workflows:
                 - staging
                 - trying
       - orborb/publish:
+          orbnamespace: <<pipeline.parameters.orbnamespace>>
           orbname: <<pipeline.parameters.orbname>>
           requires:
             - Unit Tests
