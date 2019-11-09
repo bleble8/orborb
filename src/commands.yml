@@ -25,9 +25,9 @@ commands:
             chmod a+x yq
             mv yq /usr/local/bin/   
       - run:
-          name: Run Tests using BATS <<# parameters.import >> using <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} <</ parameters.import >>
+          name: Run Tests using BATS<<# parameters.import >> using <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}<</ parameters.import >>
           command: |
-            <<# parameters.import >> export BATS_IMPORT_DEV_ORB="<<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}" <</ parameters.import >> #EOL comment
+            <<# parameters.import >>export BATS_IMPORT_DEV_ORB="<<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER}"<</ parameters.import >>
             bats test 
 
 
@@ -41,7 +41,7 @@ commands:
             circleci version
             echo "Run circleci help"              
             circleci help
-            echo -e "token: ${CIRCLECI_API_KEY}\nverbose: false" > ~/.circleci/cli.yml
+            echo -e "token: ${CIRCLE_TOKEN}\nverbose: false" > ~/.circleci/cli.yml
 
   pack-and-validate:
     description: pack directory to single file and validate
@@ -64,7 +64,7 @@ commands:
       - run:
           name: Publish Dev
           command: |
-            PUBLISH_MESSAGE=`circleci orb publish packed.yml <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} --token ${CIRCLECI_API_KEY}`
+            PUBLISH_MESSAGE=`circleci orb publish packed.yml <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} --token ${CIRCLE_TOKEN}`
             ORB_VERSION=$(echo $PUBLISH_MESSAGE | sed -n 's/Orb `\(.*\)` was published.*/\1/p')
             echo "export ORB_VERSION=\"${ORB_VERSION}\"" >> $BASH_ENV
             echo $ORB_VERSION
@@ -92,7 +92,7 @@ commands:
               echo "export PR_MESSAGE=\"BotComment: Orb publish was skipped due to [semver:skip] in commit message.\""  >> $BASH_ENV
               exit 0
             else
-              PUBLISH_MESSAGE=`circleci orb publish promote <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} ${SEMVER_INCREMENT} --token ${CIRCLECI_API_KEY}`            
+              PUBLISH_MESSAGE=`circleci orb publish promote <<parameters.orbnamespace>>/<<parameters.orbname>>@dev:${PR_NUMBER} ${SEMVER_INCREMENT} --token ${CIRCLE_TOKEN}`            
               echo $PUBLISH_MESSAGE
               ORB_VERSION=$(echo $PUBLISH_MESSAGE | sed -n 's/Orb .* was promoted to `\(.*\)`.*/\1/p')
               echo "export PR_MESSAGE=\"BotComment: *Production* version of orb available for use - \\\`${ORB_VERSION}\\\`\"" >> $BASH_ENV

@@ -16,12 +16,15 @@ jobs:
         description: GitHub username for bot adding comments
       orbname:
         type: string
-        default: "myfirstorb"
         description: Change this to whatever name is correct for your orb.
       orbnamespace:
         type: string
-        default: "eddiewebb"
         description: Change this to whatever name is correct for your orb.
+      import:
+        type: boolean
+        description: should the tests against a published dev version ? (default is inline testing)
+        default: false
+
     docker:
       - image: cimg/base:2019.08
     working_directory: ~/repo
@@ -34,7 +37,7 @@ jobs:
           orbname: <<parameters.orbname>>
           orbnamespace: <<parameters.orbnamespace>>
       - run-tests-bats:
-          import: true
+          import: <<parameters.import>>
           orbname: <<parameters.orbname>>
           orbnamespace: <<parameters.orbnamespace>>
       - when:
