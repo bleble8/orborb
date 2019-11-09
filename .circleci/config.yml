@@ -1,4 +1,4 @@
-  
+
 version: 2.1
 
 parameters:
@@ -10,7 +10,7 @@ parameters:
     default: orborb
 
 orbs:
-  orborb: eddiewebb/orborb@dev:test
+  orborb: eddiewebb/orborb@0.1
 
 workflows:
   build-deploy:
@@ -22,9 +22,10 @@ workflows:
               ignore: 
                 - master
       - orborb/test:
+          name: Unit Tests
           orbnamespace: <<pipeline.parameters.orbnamespace>>
           orbname: <<pipeline.parameters.orbname>>
-          name: Unit Tests
+          ghi_name: eddiewebb
           requires: 
             - validate
           filters:
@@ -34,6 +35,8 @@ workflows:
                 - trying
       - orborb/publish:
           orbname: <<pipeline.parameters.orbname>>
+          orbnamespace: <<pipeline.parameters.orbnamespace>>
+          ghi_name: eddiewebb
           requires:
             - Unit Tests
           filters:
