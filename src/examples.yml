@@ -1,5 +1,5 @@
 examples:
-  Open Source Example using bors.tech:
+  with-bors:
     description: |
       Workflow that assumes use of bors.tech and PR driven workflow. 
       This will ignore master branch for all workflows, publish on staging and test on trying.
