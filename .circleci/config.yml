@@ -3,15 +3,18 @@ version: 2.1
 
 orbs:
   orb-orb: eddiewebb/orborb@dev:test
+
 workflows:
   build-deploy:
     jobs:
-      - validate:
+      - orb-orb/validate:
+          name: validate
           filters:
             branches:
               ignore: 
                 - master
-      - test:
+      - orb-orb/test:
+          name: Unit Tests
           requires: 
             - validate
           filters:
@@ -19,9 +22,9 @@ workflows:
               only: 
                 - staging
                 - trying
-      - publish:
+      - orborb/publish:
           requires:
-            - test
+            - Unit Tests
           filters:
             branches:
               only: staging
