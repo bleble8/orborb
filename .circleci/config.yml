@@ -7,13 +7,13 @@ orbs:
 workflows:
   build-deploy:
     jobs:
-      - orb-orb/validate:
+      - orborb/validate:
           name: validate
           filters:
             branches:
               ignore: 
                 - master
-      - orb-orb/test:
+      - orborb/test:
           name: Unit Tests
           requires: 
             - validate
